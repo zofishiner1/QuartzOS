@@ -1,6 +1,5 @@
-instruct.txt
-kasm.o
-kc.o
-QuartzOS.iso
-.vscode
 colors.txt
+quartzos.img
+QuartzOS.iso
+build
+.vscode
