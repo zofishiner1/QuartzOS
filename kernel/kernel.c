@@ -5,6 +5,17 @@
 #include <string.h> // Для стандартной strlen
 #include "../modules/disk/ata_disk.h"
 #include "../templates/colors.h"
+#include "version.h"
+
+#ifndef KERNEL_VERSION_SUFFIX
+#define KERNEL_VERSION_SUFFIX ""
+#endif
+
+#define STR_HELPER(x) #x
+#define STR(x) STR_HELPER(x)
+
+const char kernel_version[] =
+    STR(KERNEL_VERSION_MAJOR) "." STR(KERNEL_VERSION_MINOR) "." STR(KERNEL_VERSION_PATCH) KERNEL_VERSION_SUFFIX;
 
 // Определения для Multiboot
 #define MULTIBOOT_HEADER_MAGIC 0x1BADB002
@@ -314,6 +325,10 @@ void print_string(const char *str, char color) {
     }
 }
 
+void print_version() {
+    print_string(kernel_version, LIGHT_GREEN_ON_BLACK);
+}
+
 // Функция itoa (целое число в массив)
 void itoa(int num, char *str, int base) {
     int i = 0;
@@ -485,6 +500,10 @@ void process_command(char *cmd) {
     else if (strcmp(cmd, "reboot") == 0) {
         reboot_system();
     } 
+    else if (strcmp(cmd, "kernel-version") == 0) {
+        print_version();
+        print_string("\nQuartzOS> ", WHITE_ON_BLACK);
+    }
     // Команда изменения размера экрана
     else if (strncmp(cmd, "resize", 6) == 0) {
         char *width_str = cmd + 7;
@@ -699,6 +718,7 @@ void process_command(char *cmd) {
         print_string("  view-part    - View disk partitions\n", LIGHT_CYAN_ON_BLACK);
         print_string("  select-part  - Select active partition\n", LIGHT_CYAN_ON_BLACK);
         print_string("  init-disk    - Initialize disk partition table\n", LIGHT_CYAN_ON_BLACK);
+        print_string("  kernel-version - display kernel version\n", LIGHT_CYAN_ON_BLACK);
         print_string("  clear        - Clear the screen\n", LIGHT_CYAN_ON_BLACK);
         print_string("  help         - Show this help\n", LIGHT_CYAN_ON_BLACK);
         print_string("\nQuartzOS> ", WHITE_ON_BLACK);
@@ -707,22 +727,6 @@ void process_command(char *cmd) {
     else {
         print_string("\nUnknown command! Type 'help' for available commands\nQuartzOS> ", LIGHT_RED_ON_BLACK);
     }
-}
-
-#include "version.h"
-
-#ifndef KERNEL_VERSION_SUFFIX
-#define KERNEL_VERSION_SUFFIX ""
-#endif
-
-#define STR_HELPER(x) #x
-#define STR(x) STR_HELPER(x)
-
-const char kernel_version[] =
-    STR(KERNEL_VERSION_MAJOR) "." STR(KERNEL_VERSION_MINOR) "." STR(KERNEL_VERSION_PATCH) KERNEL_VERSION_SUFFIX;
-
-void print_version() {
-    print_string(kernel_version, LIGHT_GREEN_ON_BLACK);
 }
 
 /* Главная функция */
