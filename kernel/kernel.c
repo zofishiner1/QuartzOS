@@ -707,7 +707,6 @@ void process_command(char *cmd) {
         print_string("  write-disk   - Write data to disk [abs|rel] <sector>\n", LIGHT_CYAN_ON_BLACK);
         print_string("  view-part    - View disk partitions\n", LIGHT_CYAN_ON_BLACK);
         print_string("  select-part  - Select active partition\n", LIGHT_CYAN_ON_BLACK);
-        print_string("  init-disk    - Initialize disk partition table\n", LIGHT_CYAN_ON_BLACK);
         print_string("  kernel-version - display kernel version\n", LIGHT_CYAN_ON_BLACK);
         print_string("  clear        - Clear the screen\n", LIGHT_CYAN_ON_BLACK);
         print_string("  help         - Show this help\n", LIGHT_CYAN_ON_BLACK);
