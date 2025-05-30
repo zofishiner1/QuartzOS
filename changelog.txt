@@ -1,1 +1,2 @@
 0.4 - module structure, makefile, colors header
+1.0.0-alpha - full read/write disk support, new version system
