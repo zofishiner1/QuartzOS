@@ -663,16 +663,6 @@ void process_command(char *cmd) {
         write_disk(buffer, sector);
         print_string("\nData written to disk\nQuartzOS> ", LIGHT_GREEN_ON_BLACK);
     }
-    // Команда init-disk
-    else if (strcmp(cmd, "init-disk") == 0) {
-        print_string("\nInitializing disk...\n", WHITE_ON_BLACK);
-        bool success = initialize_disk();
-        if (success) {
-            print_string("Disk initialized successfully\nQuartzOS> ", LIGHT_GREEN_ON_BLACK);
-        } else {
-            print_string("Disk initialization failed\nQuartzOS> ", LIGHT_RED_ON_BLACK);
-        }
-    }
     // Команда select-part
     else if (strncmp(cmd, "select-part", 11) == 0) {
         uint32_t partition_num = atoi(cmd + 12);
