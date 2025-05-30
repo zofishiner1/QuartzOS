@@ -735,6 +735,20 @@ void kmain(void *multiboot_structure) {
 
     clear_screen();
     set_video_mode(80, 25);
+    print_string("\nInitializing disk...\n", WHITE_ON_BLACK);
+    bool success = initialize_disk();
+    if (success) {
+        print_string("Disk initialized successfully\nQuartzOS> ", LIGHT_GREEN_ON_BLACK);
+    } else {
+        print_string("Disk initialization failed. Try again...", LIGHT_RED_ON_BLACK);
+        bool success_second = initialize_disk();
+        if (success_second) {
+            print_string("Disk initialized successfully\nQuartzOS> ", LIGHT_GREEN_ON_BLACK);
+        } else {
+            print_string("Disk initialization failed. Reboot", LIGHT_RED_ON_BLACK);
+            reboot_system();
+        }
+    }
     clear_screen();
     // Вывод версии ядра из макроса KERNEL_VERSION
     print_string("Welcome to QuartzOS!\n", WHITE_ON_BLACK);
