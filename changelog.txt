@@ -1,3 +1,4 @@
 0.4 - module structure, makefile, colors header
 1.0.0-alpha - full read/write disk support, new version system
 1.1.0-alpha - rename version variables in makefile, automatic disk initialization on boot (if failed - reboot)
+1.2.0-alpha - remade main function, fixed little problems, added RAM info output(ned to be checked)

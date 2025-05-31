@@ -7,6 +7,24 @@
 #include "../templates/colors.h"
 #include "version.h"
 
+#define MULTIBOOT_INFO_MEM_MAP 0x40
+
+typedef struct multiboot_memory_map {
+    uint32_t size;
+    uint64_t addr;
+    uint64_t len;
+    uint32_t type;
+} __attribute__((packed)) multiboot_memory_map_t;
+
+typedef struct multiboot_info {
+    uint32_t flags;
+    uint32_t mem_lower;
+    uint32_t mem_upper;
+    // ... другие поля по необходимости
+    uint32_t mmap_length;
+    uint32_t mmap_addr;
+} multiboot_info_t;
+
 #ifndef KERNEL_VERSION_SUFFIX
 #define KERNEL_VERSION_SUFFIX ""
 #endif
@@ -15,7 +33,7 @@
 #define STR(x) STR_HELPER(x)
 
 const char kernel_version[] =
-    STR(KERNEL_VERSION_MAJOR) "." STR(KERNEL_VERSION_MINOR) "." STR(KERNEL_VERSION_PATCH) KERNEL_VERSION_SUFFIX;
+    STR(KERNEL_VERSION_MAJOR) "." STR(KERNEL_VERSION_MINOR) "." STR(KERNEL_VERSION_PATCH) KERNEL_VERSION_SUFFIX "\n";
 
 // Определения для Multiboot
 #define MULTIBOOT_HEADER_MAGIC 0x1BADB002
@@ -695,7 +713,6 @@ void process_command(char *cmd) {
     // Команда clear
     else if (strcmp(cmd, "clear") == 0) {
         clear_screen();
-        print_string("QuartzOS> ", WHITE_ON_BLACK);
     }
     // Команда help
     else if (strcmp(cmd, "help") == 0) {
@@ -718,57 +735,129 @@ void process_command(char *cmd) {
     }
 }
 
-/* Главная функция */
-void kmain(void *multiboot_structure) {
-    (void)multiboot_structure;
+// Обновленная функция print_memory_info
+void print_memory_info(multiboot_info_t *mbi) {
+    if (!(mbi->flags & MULTIBOOT_INFO_MEM_MAP)) {
+        print_string("No memory map provided\n", LIGHT_RED_ON_BLACK);
+        return;
+    }
 
+    print_string("Memory map:\n", WHITE_ON_BLACK);
+    print_string("Base Address       Length          Type\n", LIGHT_GREEN_ON_BLACK);
+    print_string("----------------------------------------\n", DARK_GRAY_ON_BLACK);
+
+    multiboot_memory_map_t *mmap = (multiboot_memory_map_t *)mbi->mmap_addr;
+    uint32_t mmap_end = mbi->mmap_addr + mbi->mmap_length;
+
+    while ((uint32_t)mmap < mmap_end) {
+        char buffer[32];
+        
+        // Вывод адреса
+        print_string("0x", WHITE_ON_BLACK);
+        itoa((uint32_t)(mmap->addr >> 32), buffer, 16);
+        print_string(buffer, LIGHT_BLUE_ON_BLACK);
+        itoa((uint32_t)(mmap->addr & 0xFFFFFFFF), buffer, 16);
+        print_string(buffer, LIGHT_BLUE_ON_BLACK);
+        print_string("  ", WHITE_ON_BLACK);
+        
+        // Вывод длины
+        print_string("0x", WHITE_ON_BLACK);
+        itoa((uint32_t)(mmap->len >> 32), buffer, 16);
+        print_string(buffer, LIGHT_BLUE_ON_BLACK);
+        itoa((uint32_t)(mmap->len & 0xFFFFFFFF), buffer, 16);
+        print_string(buffer, LIGHT_BLUE_ON_BLACK);
+        print_string("  ", WHITE_ON_BLACK);
+        
+        // Вывод типа
+        itoa(mmap->type, buffer, 10);
+        print_string(buffer, LIGHT_BLUE_ON_BLACK);
+        print_string("\n", WHITE_ON_BLACK);
+        
+        mmap = (multiboot_memory_map_t *)((uint32_t)mmap + mmap->size + sizeof(mmap->size));
+    }
+}
+
+/* Главная функция */
+void kmain(uint32_t magic, multiboot_info_t *mbi) {
+    // Проверка магического числа Multiboot
+    if (magic != 0x2BADB002) {
+        print_string("Invalid Multiboot magic number!\n", LIGHT_RED_ON_BLACK);
+        return;
+    }
+
+    // Инициализация экрана
     clear_screen();
     set_video_mode(80, 25);
+    print_string("\nQuartzOS Booted Successfully!\n", LIGHT_GREEN_ON_BLACK);
+    print_string("Version: ", LIGHT_BLUE_ON_GREEN);
+    print_version();
+    
+    // Вывод информации о памяти
+    print_string("\nFetching memory info...\n", WHITE_ON_BLACK);
+    print_memory_info(mbi);
+
+    // Инициализация диска с повторной попыткой
     print_string("\nInitializing disk...\n", WHITE_ON_BLACK);
-    bool success = initialize_disk();
-    if (success) {
-        print_string("Disk initialized successfully\nQuartzOS> ", LIGHT_GREEN_ON_BLACK);
-    } else {
-        print_string("Disk initialization failed. Try again...", LIGHT_RED_ON_BLACK);
-        bool success_second = initialize_disk();
-        if (success_second) {
-            print_string("Disk initialized successfully\nQuartzOS> ", LIGHT_GREEN_ON_BLACK);
-        } else {
-            print_string("Disk initialization failed. Reboot", LIGHT_RED_ON_BLACK);
-            reboot_system();
+    bool disk_ok = false;
+    int attempts = 0;
+    const int max_attempts = 2;
+
+    while (attempts < max_attempts && !disk_ok) {
+        disk_ok = initialize_disk();
+        attempts++;
+        
+        if (!disk_ok) {
+            if (attempts < max_attempts) {
+                print_string("Disk initialization failed! Retrying...\n", LIGHT_RED_ON_BLACK);
+                // Небольшая задержка перед повторной попыткой
+                for (volatile int i = 0; i < 10000000; i++);
+            } else {
+                print_string("Fatal: Disk initialization failed after ", LIGHT_RED_ON_BLACK);
+                char attempts_str[3];
+                itoa(max_attempts, attempts_str, 10);
+                print_string(attempts_str, LIGHT_RED_ON_BLACK);
+                print_string(" attempts\n", LIGHT_RED_ON_BLACK);
+                print_string("Rebooting system in 3 seconds...\n", LIGHT_RED_ON_BLACK);
+                
+                // Обратный отсчет перед перезагрузкой
+                for (int i = 3; i > 0; i--) {
+                    char count_str[2];
+                    itoa(i, count_str, 10);
+                    print_string(count_str, LIGHT_RED_ON_BLACK);
+                    print_string("... ", LIGHT_RED_ON_BLACK);
+                    for (volatile int j = 0; j < 10000000; j++);
+                }
+                
+                reboot_system();
+            }
         }
     }
-    clear_screen();
-    // Вывод версии ядра из макроса KERNEL_VERSION
-    print_string("Welcome to QuartzOS!\n", WHITE_ON_BLACK);
-    print_string("Kernel version: ", LIGHT_GREEN_ON_BLACK);
-    print_version();
-    print_string("\n", LIGHT_GREEN_ON_BLACK);
-    print_string("------------------------\n", WHITE_ON_BLACK);
-    print_string("Type 'help' to see available commands.\n", WHITE_ON_BLACK);
-    print_string("Now with FULL disk read/write support!\n", BLUE_ON_GREEN);
-    print_string("QuartzOS> ", WHITE_ON_BLACK);
 
+    if (disk_ok) {
+        print_string("Disk ready\n", LIGHT_GREEN_ON_BLACK);
+    }
+
+    // Основной цикл оболочки
+    print_string("\nQuartzOS> ", WHITE_ON_BLACK);
     while (1) {
         char c = get_char();
         if (c == '\n') {
-            print_char('\n', WHITE_ON_BLACK); // Выводим перенос строки после Enter
-            command[command_length] = '\0'; // Обеспечиваем терминатор строки
+            print_char('\n', WHITE_ON_BLACK);
+            command[command_length] = '\0';
             process_command(command);
             memset(command, 0, sizeof(command));
             command_length = 0;
+            print_string("QuartzOS> ", WHITE_ON_BLACK);
         } else if (c == '\b') {
             if (command_length > 0) {
                 command_length--;
-                print_char('\b', WHITE_ON_BLACK); // Backspace
-                print_char(' ', WHITE_ON_BLACK);  // Очистка символа
-                print_char('\b', WHITE_ON_BLACK); // Возврат курсора назад
+                print_char('\b', WHITE_ON_BLACK);
+                print_char(' ', WHITE_ON_BLACK);
+                print_char('\b', WHITE_ON_BLACK);
             }
-        } else if (c != 0) {
-            if (command_length < (int)(sizeof(command) - 1)) {
-                command[command_length++] = c;
-                print_char(c, WHITE_ON_BLACK);
-            }
+        } else if (c != 0 && command_length < (int)(sizeof(command) - 1)) {
+            command[command_length++] = c;
+            print_char(c, WHITE_ON_BLACK);
         }
     }
 }

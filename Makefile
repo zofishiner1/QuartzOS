@@ -14,7 +14,7 @@ RAM_SIZE ?= 16
 
 # ============== ВЕРСИЯ ЯДРА ==============
 KERNEL_VERSION_MAJOR = 1
-KERNEL_VERSION_MINOR = 1
+KERNEL_VERSION_MINOR = 2
 KERNEL_VERSION_PATCH = 0
 KERNEL_VERSION_SUFFIX = -alpha
 VERSION_HEADER = kernel/version.h
