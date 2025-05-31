@@ -788,9 +788,6 @@ void kmain(uint32_t magic, multiboot_info_t *mbi) {
     // Инициализация экрана
     clear_screen();
     set_video_mode(80, 25);
-    print_string("\nQuartzOS Booted Successfully!\n", LIGHT_GREEN_ON_BLACK);
-    print_string("Version: ", LIGHT_BLUE_ON_GREEN);
-    print_version();
     
     // Вывод информации о памяти
     print_string("\nFetching memory info...\n", WHITE_ON_BLACK);
@@ -837,6 +834,9 @@ void kmain(uint32_t magic, multiboot_info_t *mbi) {
         print_string("Disk ready\n", LIGHT_GREEN_ON_BLACK);
     }
 
+    print_string("\nQuartzOS Booted Successfully!\n", LIGHT_GREEN_ON_LIGHT_RED);
+    print_string("Version: ", LIGHT_BLUE_ON_GREEN);
+    print_version();
     // Основной цикл оболочки
     print_string("\nQuartzOS> ", WHITE_ON_BLACK);
     while (1) {
