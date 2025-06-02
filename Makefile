@@ -1,10 +1,20 @@
+# ============== ВЕРСИЯ ЯДРА ==============
+KERNEL_VERSION_MAJOR = 1
+KERNEL_VERSION_MINOR = 3
+KERNEL_VERSION_PATCH = 0
+KERNEL_VERSION_SUFFIX = -alpha
+VERSION_HEADER = kernel/version.h
+
 # ============== КОНФИГУРАЦИЯ ==============
+# Убрать THREADS_ASM
 KERNEL_ASM = kernel/kernel.asm
 KERNEL_C = kernel/kernel.c
 ATA_DISK_C = modules/disk/ata_disk.c
+THREADS_C = modules/threads_and_processes/threads_and_processes.c
 ATA_DISK_H = modules/disk/ata_disk.h
+THREADS_H = modules/threads_and_processes/threads_and_processes.h
 COLORS_H = templates/colors.h
-OUTPUT_ISO = QuartzOS.iso
+OUTPUT_ISO = QuartzOS_$(KERNEL_VERSION_MAJOR).$(KERNEL_VERSION_MINOR).$(KERNEL_VERSION_PATCH)$(KERNEL_VERSION_SUFFIX).iso
 LINKER_SCRIPT = kernel/link.ld
 BUILD_DIR = build
 ISO_DIR = $(BUILD_DIR)/iso
@@ -12,15 +22,9 @@ GRUB_CFG = $(ISO_DIR)/boot/grub/grub.cfg
 DISK_SIZE ?= 200
 RAM_SIZE ?= 16
 
-# ============== ВЕРСИЯ ЯДРА ==============
-KERNEL_VERSION_MAJOR = 1
-KERNEL_VERSION_MINOR = 2
-KERNEL_VERSION_PATCH = 0
-KERNEL_VERSION_SUFFIX = -alpha
-VERSION_HEADER = kernel/version.h
-
 # ============== ПАРАМЕТРЫ СБОРКИ ==============
-CFLAGS = -m32 -ffreestanding -fno-stack-protector -Wall -Wextra -O2 -Ikernel
+CFLAGS = -m32 -ffreestanding -fno-stack-protector -Wall -Wextra -O2 \
+         -Ikernel -Imodules/threads_and_processes -Itemplates
 
 LDFLAGS = -m elf_i386 -T $(LINKER_SCRIPT) -nostdlib -z noexecstack
 
@@ -42,22 +46,30 @@ all: update_version iso qemu
 
 # ============== СБОРКА ОБЪЕКТНЫХ ФАЙЛОВ ==============
 $(BUILD_DIR)/kasm.o: $(KERNEL_ASM)
-	@echo "🔨 Сборка assembler-файла..."
+	@echo "🔨 Сборка assembler-файла ядра..."
 	@mkdir -p $(BUILD_DIR)
 	@nasm -f elf32 $< -o $@
 
-$(BUILD_DIR)/kc.o: $(KERNEL_C) $(COLORS_H) $(VERSION_HEADER)
-	@echo "🔨 Сборка C-файла kernel.c..."
+$(BUILD_DIR)/kc.o: $(KERNEL_C) $(COLORS_H) $(VERSION_HEADER) $(THREADS_H) templates/kernel_api.h
+	@echo "🔨 Сборка C-файла ядра..."
 	@mkdir -p $(BUILD_DIR)
 	@gcc $(CFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/ata_disk.o: $(ATA_DISK_C) $(ATA_DISK_H)
-	@echo "🔨 Сборка C-файла ata_disk.c..."
+	@echo "🔨 Сборка модуля диска..."
 	@mkdir -p $(BUILD_DIR)
-	@gcc $(CFLAGS) -c $(ATA_DISK_C) -o $@
+	@gcc $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/threads.o: $(THREADS_C) $(THREADS_H) $(COLORS_H) templates/kernel_api.h
+	@echo "🔨 Сборка модуля потоков и процессов..."
+	@mkdir -p $(BUILD_DIR)
+	@gcc $(CFLAGS) -c $< -o $@
+
+# Убрали цель для context_switch.o
 
 # ============== КОМПОНОВКА ЯДРА ==============
-$(BUILD_DIR)/kernel: $(BUILD_DIR)/kasm.o $(BUILD_DIR)/kc.o $(BUILD_DIR)/ata_disk.o
+$(BUILD_DIR)/kernel: $(BUILD_DIR)/kasm.o $(BUILD_DIR)/kc.o \
+                    $(BUILD_DIR)/ata_disk.o $(BUILD_DIR)/threads.o
 	@echo "🔗 Компоновка ядра..."
 	@ld $(LDFLAGS) -o $@ $^
 

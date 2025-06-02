@@ -6,6 +6,9 @@
 #include "../modules/disk/ata_disk.h"
 #include "../templates/colors.h"
 #include "version.h"
+#include "../modules/threads_and_processes/threads_and_processes.h"
+
+void* memset(void* ptr, int value, size_t num);
 
 #define MULTIBOOT_INFO_MEM_MAP 0x40
 
@@ -97,6 +100,13 @@ char *strncpy(char *dest, const char *src, size_t n) {
     return dest;
 }
 
+void* memset(void* ptr, int value, size_t num) {
+    unsigned char* p = ptr;
+    while (num--) {
+        *p++ = (unsigned char)value;
+    }
+    return ptr;
+}
 
 // Функция для чтения байта из порта ввода/вывода
 static inline uint8_t inb(uint16_t port) {
@@ -710,6 +720,58 @@ void process_command(char *cmd) {
     else if (strcmp(cmd, "view-part") == 0) {
         view_partitions();
     }
+    else if (strcmp(cmd, "ps") == 0) {
+        print_string("\nRunning processes:\n", WHITE_ON_BLACK);
+        print_string("PID   State     Threads\n", LIGHT_GREEN_ON_BLACK);
+        print_string("----------------------\n", DARK_GRAY_ON_BLACK);
+    
+        for (int i = 0; i < MAX_PROCESSES; i++) {
+            if (processes[i].state != PROCESS_TERMINATED && 
+                processes[i].state != PROCESS_NEW) {
+            
+                // Убрали неиспользуемую state_str
+                char pid_str[6], threads_str[4];
+                itoa(processes[i].id, pid_str, 10);
+                itoa(processes[i].thread_count, threads_str, 10);
+            
+                // Преобразуем состояние в строку
+                const char* state;
+                switch(processes[i].state) {
+                    case PROCESS_READY: state = "READY"; break;
+                    case PROCESS_RUNNING: state = "RUNNING"; break;
+                    case PROCESS_BLOCKED: state = "BLOCKED"; break;
+                    default: state = "UNKNOWN";
+                }
+            
+                print_string(pid_str, WHITE_ON_BLACK);
+                print_string("    ", WHITE_ON_BLACK);
+                print_string(state, LIGHT_BLUE_ON_BLACK);
+                print_string("     ", WHITE_ON_BLACK);
+                print_string(threads_str, WHITE_ON_BLACK);
+                print_char('\n', WHITE_ON_BLACK);
+            }
+        }
+        print_string("\nQuartzOS> ", WHITE_ON_BLACK);
+    }
+    else if (strncmp(cmd, "kill ", 5) == 0) {
+        uint32_t pid = atoi(cmd + 5);
+        bool found = false;
+        
+        for (int i = 0; i < MAX_PROCESSES; i++) {
+            if (processes[i].id == pid && 
+                processes[i].state != PROCESS_TERMINATED) {
+                process_exit(&processes[i]);
+                print_string("Process terminated\n", LIGHT_GREEN_ON_BLACK);
+                found = true;
+                break;
+            }
+        }
+        
+        if (!found) {
+            print_string("Process not found or already terminated\n", LIGHT_RED_ON_BLACK);
+        }
+        print_string("QuartzOS> ", WHITE_ON_BLACK);
+    }
     // Команда clear
     else if (strcmp(cmd, "clear") == 0) {
         clear_screen();
@@ -777,6 +839,26 @@ void print_memory_info(multiboot_info_t *mbi) {
     }
 }
 
+// Пример функции для потока
+static void sample_thread_function() {
+    int counter = 0;
+    while (1) {
+        char msg[50];
+        char count_str[10];
+        itoa(counter, count_str, 10);
+        strncpy(msg, "Thread counter: ", sizeof(msg));
+        strncat(msg, count_str, sizeof(msg) - strlen(msg));
+        strncat(msg, "\n", sizeof(msg) - strlen(msg));
+        
+        print_string(msg, LIGHT_CYAN_ON_BLACK);
+        
+        counter++;
+        
+        // Эмуляция работы
+        for (volatile int i = 0; i < 10000000; i++);
+    }
+}
+
 /* Главная функция */
 void kmain(uint32_t magic, multiboot_info_t *mbi) {
     // Проверка магического числа Multiboot
@@ -832,6 +914,32 @@ void kmain(uint32_t magic, multiboot_info_t *mbi) {
 
     if (disk_ok) {
         print_string("Disk ready\n", LIGHT_GREEN_ON_BLACK);
+    }
+
+    // Инициализация менеджера процессов
+    print_string("\nInitializing process manager...\n", WHITE_ON_BLACK);
+    init_process_manager();
+    
+    // Создаем новый процесс
+    print_string("Creating sample process...\n", WHITE_ON_BLACK);
+    process_t* sample_proc = create_process(sample_thread_function, 10);
+    
+    if (sample_proc) {
+        char msg[60];
+        char pid_str[10];
+        itoa(sample_proc->id, pid_str, 10);
+        strncpy(msg, "Process created! PID: ", sizeof(msg));
+        strncat(msg, pid_str, sizeof(msg) - strlen(msg));
+        strncat(msg, "\n", sizeof(msg) - strlen(msg));
+        
+        print_string(msg, LIGHT_GREEN_ON_BLACK);
+        
+        // Добавляем еще один поток в тот же процесс
+        thread_t* second_thread = create_thread(sample_proc, sample_thread_function, 5);
+        if (second_thread) {
+            strncpy(msg, "Second thread created in process\n", sizeof(msg));
+            print_string(msg, LIGHT_GREEN_ON_BLACK);
+        }
     }
 
     print_string("\nQuartzOS Booted Successfully!\n", LIGHT_GREEN_ON_LIGHT_RED);
